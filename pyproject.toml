@@ -1,0 +1,23 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "byron", email = "1636700244@qq.com"},
+]
+dependencies = [
+    "uvicorn[standard]>=0.30.1",
+    "fastapi[all]>=0.111.0",
+    "SQLAlchemy>=2.0.30",
+    "pymysql>=1.1.1",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.scripts]
+dev = "uvicorn main:app --reload --port 8080 --app-dir src"
