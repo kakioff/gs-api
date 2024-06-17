@@ -5,11 +5,11 @@ from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# region 初始化数据库
-import database
-
-database.Base.metadata.create_all(bind=database.engine)
-# endregion
+# # region 初始化数据库
+# from database import models as db_model
+# import database
+# db_model.Base.metadata.create_all(bind=database.engine)
+# # endregion
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
