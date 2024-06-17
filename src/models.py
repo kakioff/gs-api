@@ -1,13 +1,9 @@
 from typing import Type, TypeVar
 from pydantic import BaseModel
 
-from database.models import User
+from database.models import Users
 
 T = TypeVar('T', bound=BaseModel)
-
-def to_pydantic(db_object, pydantic_model: Type[T]) -> T:
-    return pydantic_model(**db_object.__dict__)
-
 
 # class Token(BaseModel):
 #     access_token: str
@@ -25,9 +21,9 @@ class TokenData(BaseModel):
     desc: str | None = None
 
 class CurrentUser(BaseModel):
-    user: User
+    user: Users
     token: str
     token_data: TokenData
     
-    class Config:
-        arbitrary_types_allowed = True
+    # class Config:
+    #     arbitrary_types_allowed = True

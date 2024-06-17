@@ -20,7 +20,11 @@ def return_resp(data, total, detail, code):
     if c["data"] is None:
         del c["data"]
 
-    res = Response(content=orjson.dumps(c), status_code=code)
+    res = Response(
+        content=orjson.dumps(c),
+        status_code=code,
+        headers={"Content-Type": "application/json"},
+    )
     return res
 
 
@@ -35,6 +39,7 @@ def resp_err(
 ):
     return return_resp(data=data, total=total, detail=detail, code=code)
 
+
 def encrypt_md5(data_string, salt="0123456789ABCDEF...uygt6987"):
     """
     对字符串进行 MD5 加密
@@ -42,6 +47,6 @@ def encrypt_md5(data_string, salt="0123456789ABCDEF...uygt6987"):
     :param salt: 盐
     :return: 加密后的字符串
     """
-    obj = hashlib.md5(salt.encode('utf-8'))
-    obj.update(data_string.encode('utf-8'))
+    obj = hashlib.md5(salt.encode("utf-8"))
+    obj.update(data_string.encode("utf-8"))
     return obj.hexdigest()

@@ -18,3 +18,6 @@ class ChangeInfo(BaseModel):
     email: str | None = None
     phone: str | None = None
     passwd: str | None = None
+
+class AdminChangeInfo(ChangeInfo):
+    role_id: int | None = None

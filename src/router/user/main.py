@@ -1,8 +1,8 @@
 from fastapi import Depends, Header, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from database import get_db
-from database.models import Token, User
-from sqlalchemy.orm import Session
+from database.models import Tokens, Users
+from sqlmodel import Session, select
 
 from models import TokenData, CurrentUser
 from utils import encrypt_md5, resp_err, resp_succ
@@ -22,11 +22,9 @@ async def login(
     登录接口
     """
     new_passwd = encrypt_md5(usr.passwd)
-    user = (
-        db.query(User)
-        .filter(User.name == usr.name, User.hashed_password == new_passwd)
-        .one_or_none()
-    )
+    user = db.exec(
+        select(Users).where(Users.name == usr.name, Users.hashed_password == new_passwd)
+    ).one_or_none()
     if user is None:
         return resp_err(detail="用户名或密码错误", code=401)
     token_data = TokenData(
@@ -52,11 +50,11 @@ async def token(
     获取token接口，用于docs页面登录
     """
     new_passwd = encrypt_md5(usr.password)
-    user = (
-        db.query(User)
-        .filter(User.name == usr.username, User.hashed_password == new_passwd)
-        .one_or_none()
-    )
+    user = db.exec(
+        select(Users).where(
+            Users.name == usr.username, Users.hashed_password == new_passwd
+        )
+    ).one_or_none()
     if user is None:
         return resp_err(detail="用户名或密码错误", code=401)
     token_data = TokenData(
@@ -75,12 +73,9 @@ async def create_user(usr: CreateUser, db: Session = Depends(get_db)):
     创建用户接口
     """
     new_passwd = encrypt_md5(usr.passwd)
-    new_user = User()
-    new_user.name = usr.name  # type: ignore
-    new_user.hashed_password = new_passwd  # type: ignore
-    new_user.email = usr.email  # type: ignore
-    new_user.phone = usr.phone  # type: ignore
-    new_user.role_id = 3  # type: ignore
+    new_user = Users(
+        name=usr.name, email=usr.email, phone=usr.phone, hashed_password=new_passwd
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -92,8 +87,7 @@ async def get_user_info(usr: CurrentUser = Depends(get_user)):
     """
     获取用户信息接口，需要登录才能访问
     """
-    user: User = usr.user
-    return resp_succ(data=user.to_resp(), detail="获取信息成功")
+    return resp_succ(data=usr.user.to_resp(), detail="获取信息成功")
 
 
 @router.get("/logout")
@@ -101,7 +95,10 @@ async def logout(usr: CurrentUser = Depends(get_user), db: Session = Depends(get
     """
     登出接口，需要登录才能访问，删除用户的token信息，实现登出功能。
     """
-    db.query(Token).filter(Token.token == usr.token).delete()
+    token = db.exec(select(Tokens).where(Tokens.token == usr.token)).one_or_none()
+    if token is not None:
+        db.delete(token)
+        db.commit()
     return resp_succ(detail="登出成功")
 
 
@@ -114,16 +111,18 @@ async def update_user(
     """
     更新用户信息接口，需要登录才能访问。
     """
-    user: User = usr.user
+    user = usr.user
+
     if opts.uname is not None and opts.uname != user.name:
-        user.name = opts.uname  # type: ignore
+        user.name = opts.uname
     if opts.email is not None and opts.email != user.email:
-        user.email = opts.email  # type: ignore
+        user.email = opts.email
     if opts.phone is not None and opts.phone != user.phone:
-        user.phone = opts.phone  # type: ignore
+        user.phone = opts.phone
     if opts.passwd is not None:
         new_passwd = encrypt_md5(opts.passwd)
-        user.hashed_password = new_passwd  # type: ignore
+        user.hashed_password = new_passwd
+    db.add(user)
     db.commit()
     db.refresh(user)
     return resp_succ(data=user.to_resp(), detail="更新成功")

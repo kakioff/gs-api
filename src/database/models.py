@@ -1,43 +1,19 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Text, DateTime, func
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from datetime import datetime
+from typing import Optional
+from sqlmodel import Field, SQLModel, Relationship
 
 
-class Role(Base):
-    """
-    |id|name|label|
-    |--|----|-----|
-    | 0|guest|游客|
-    | 1|disable|禁用|
-    | 2|subscribe|订阅者|
-    | 3|user|普通用户|
-    | 4|admin|管理员|
-    | 5|super|超管|
-    """
+class Users(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, index=True, description="用户ID")
+    name: str = Field(description="用户名称")
+    email: Optional[str] = Field(description="用户邮箱")
+    phone: Optional[str] = Field(description="用户电话")
+    hashed_password: Optional[str] = Field(description="用户密码")
+    role_id: int = Field(foreign_key="roles.id", default=3, description="角色ID")
 
-    __tablename__ = "roles"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(200), unique=True, nullable=False)
-    label = Column(String(200), unique=True, nullable=False)
-    users = relationship("User", back_populates="role")
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(250))
-    email = Column(String(250))
-    phone = Column(String(20))
-    hashed_password = Column(Text)
-    role_id = Column(
-        Integer, ForeignKey("roles.id"), nullable=False
-    )  # Foreign key to roles table.
-
-    role = relationship("Role", back_populates="users")
-    tokens = relationship("Token", back_populates="user")
+    role: "Roles" = Relationship(back_populates="users")
+    tokens: list["Tokens"] = Relationship(back_populates="user")
+    recipes: list["Recipes"] = Relationship(back_populates="user")
 
     def to_resp(self):
         return {
@@ -52,18 +28,71 @@ class User(Base):
         }
 
 
-class Token(Base):
-    __tablename__ = "tokens"
+class Roles(SQLModel, table=True):
+    """
+    |id|name|label|
+    |--|----|-----|
+    | 0|guest|游客|
+    | 1|disable|禁用|
+    | 2|subscribe|订阅者|
+    | 3|user|普通用户|
+    | 4|admin|管理员|
+    | 5|super|超管|
+    """
 
-    id = Column(Integer, primary_key=True, index=True)
-    token = Column(Text, nullable=False)
-    uid = Column(Integer, ForeignKey("users.id"), nullable=False)
-    expires = Column(DateTime, nullable=False, comment="The expiration time.")
-    created = Column(
-        DateTime, default=func.now(), nullable=False, comment="The creation time"
+    id: int = Field(primary_key=True, index=True, description="角色ID")
+    name: str = Field(description="角色名称")
+    label: str = Field(description="角色标签")
+    users: list[Users] = Relationship(back_populates="role")
+
+
+class Tokens(SQLModel, table=True):
+
+    id: int = Field(default=None, primary_key=True, index=True, description="令牌ID")
+    token: str = Field(description="令牌值")
+    uid: int = Field(foreign_key="users.id", description="用户ID")
+    expires: datetime = Field(description="过期时间")
+    created: datetime = Field(default_factory=datetime.now, description="创建时间")
+    ip: Optional[str] = Field(default=None, description="IP地址")
+    user_agent: Optional[str] = Field(default=None, description="用户代理")
+    desc: Optional[str] = Field(default=None, description="描述")
+
+    user: Users = Relationship(back_populates="tokens")
+
+
+class RecipeGroups(SQLModel, table=True):
+    __tablename__ = "recipe_groups"  # type: ignore
+    id: int = Field(
+        default=None, primary_key=True, index=True, description="菜谱分类ID"
     )
-    ip = Column(String(45), nullable=False, comment="The IP address")
-    user_agent = Column(String(250), nullable=False, comment="The user agent string")
-    desc = Column(String(250), nullable=True, comment="A description")
+    name: str = Field(description="菜谱分类名称")
+    desc: Optional[str] = Field(default=None, description="菜谱分类描述")
+    created: datetime = Field(default_factory=datetime.now, description="创建时间")
+    updated: datetime = Field(default_factory=datetime.now, description="更新时间")
+    uid: int = Field(foreign_key="users.id", description="用户ID")  # 创建者ID.
+    status: int = Field(default=0, description="状态")  # 0:草稿, 1:发布, 2:删除.
+    private: bool = Field(default=False, description="是否私有")  # 私有分类.
 
-    user = relationship("User", back_populates="tokens")  # The related User object.
+    recipes: list["Recipes"] = Relationship(back_populates="group")  # 关联菜谱.
+
+
+class Recipes(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, index=True, description="菜谱ID")
+    name: str = Field(description="菜谱名称")
+    desc: Optional[str] = Field(default=None, description="菜谱描述")
+    created: datetime = Field(default_factory=datetime.now, description="创建时间")
+    updated: datetime = Field(default_factory=datetime.now, description="更新时间")
+    uid: int = Field(foreign_key="users.id", description="用户ID")
+    status: int = Field(
+        default=0, description="状态"
+    )  # 0:草稿, 1:发布, 2:删除, 3:审核中, 4:审核不通过.
+    group_id: int = Field(
+        foreign_key="recipe_groups.id", description="菜谱分类ID"
+    )  # 关联菜谱分类.
+    content: str = Field(description="菜谱内容")  # Markdown 格式.
+    cover: Optional[str] = Field(default=None, description="封面图片")  # 图片URL.
+    materials: Optional[str] = Field(default=None, description="材料")  # JSON 格式.
+    private: bool = Field(default=False, description="是否私有")
+
+    user: Users = Relationship(back_populates="recipes")
+    group: RecipeGroups = Relationship(back_populates="recipes")  # 关联菜谱分类.
