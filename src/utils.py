@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from fastapi import Response
 from fastapi.responses import JSONResponse
 import orjson
