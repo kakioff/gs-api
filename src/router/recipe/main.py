@@ -49,6 +49,9 @@ def create_recipe(
         db: Session = Depends(get_db),
         usr: CurrentUser = Depends(get_user),
 ):
+    """
+    创建菜谱
+    """
     recipe_json = {
         **recipe.model_dump(),
         "materials": orjson.dumps(recipe.materials).decode(),

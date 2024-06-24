@@ -20,10 +20,10 @@ class Users(SQLModel, table=True):
     recipes: list["Recipes"] = Relationship(back_populates="user")
     # 菜谱评论
     recipe_comments: list["RecipeComments"] = Relationship(back_populates="user")
-    # 菜谱被提及评论
-    recipe_replied_comments: list["RecipeComments"] = Relationship(
-        back_populates="reply_to_user"
-    )
+    # # 菜谱被提及评论
+    # recipe_replied_comments: list["RecipeComments"] = Relationship(
+    #     back_populates="reply_to_user"
+    # )
     # endregion
 
     def to_resp(self):
@@ -49,6 +49,13 @@ class Roles(SQLModel, table=True):
     | 3|user|普通用户|
     | 4|admin|管理员|
     | 5|super|超管|
+
+    ---
+
+    ```sql
+    # 生成数据
+    insert into roles (id,name,label) values (0,'guest','游客'),(1,'disable','禁用'),(2,'subscribe','订阅者'),(3,'user','普通用户'),(4,'admin','管理员'),(5,'super','超管');
+    ```
     """
 
     id: int = Field(primary_key=True, index=True, description="角色ID")
@@ -100,7 +107,7 @@ class Recipes(SQLModel, table=True):
     status: int = Field(
         default=0, description="状态"
     )  # 0:草稿, 1:发布, 2:删除, 3:审核中, 4:审核不通过.
-    group_id: int = Field(
+    group_id: Optional[int] = Field(
         foreign_key="recipe_groups.id", description="菜谱分类ID"
     )  # 关联菜谱分类.
     content: str = Field(description="菜谱内容")  # Markdown 格式.
@@ -128,6 +135,7 @@ class Recipes(SQLModel, table=True):
             "cover": self.cover,
         }
 
+
 class RecipeIngredient(SQLModel, table=True):
     __tablename__ = "recipe_ingredient"  # type: ignore
     id: int = Field(default=None, primary_key=True, index=True, description="ID")
@@ -150,6 +158,8 @@ class RecipeSteps(SQLModel, table=True):  # 菜谱步骤.
     order: int = Field(description="步骤顺序")
     img: Optional[str] = Field(default=None, description="步骤图片")
 
+    recipe: Recipes = Relationship(back_populates="setps")
+
 
 class RecipeComments(SQLModel, table=True):  # 菜谱评论.
     __tablename__ = "recipe_comments"  # type: ignore
@@ -165,22 +175,22 @@ class RecipeComments(SQLModel, table=True):  # 菜谱评论.
     reply_to: Optional[int] = Field(
         foreign_key="recipe_comments.id", description="回复评论ID"
     )
-    reply_to_uid: Optional[int] = Field(
-        foreign_key="users.id", description="回复用户ID"
-    )
+    # reply_to_uid: Optional[int] = Field(
+    #     foreign_key="users.id", description="回复用户ID"
+    # )
     # 创建人
     user: Users = Relationship(back_populates="recipe_comments")
     # 菜谱
     recipe: Recipes = Relationship(back_populates="comments")
     # 回复评论
     reply_to_comment: Optional["RecipeComments"] = Relationship(
-        back_populates="replies"
+        # back_populates="replies"
     )
-    # 被回复的评论
-    replys: list["RecipeComments"] = Relationship(
-        back_populates="reply_to_comment",
-    )
+    # # 被回复的评论
+    # replies: list["RecipeComments"] = Relationship(
+    #     back_populates="reply_to_comment"
+    # )
     # 回复用户
-    reply_to_user: Optional[Users] = Relationship(
-        back_populates="recipe_replied_comments"
-    )
+    # reply_to_user: Optional[Users] = Relationship(
+    #     back_populates="recipe_replied_comments"
+    # )
