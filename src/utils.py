@@ -1,5 +1,7 @@
+from base64 import b64decode, b64encode
 import hashlib
-from typing import Any, Literal, Optional
+import logging
+from typing import Any, Literal, Optional, Union
 from fastapi import Response
 from fastapi.responses import JSONResponse
 import orjson
@@ -50,3 +52,63 @@ def encrypt_md5(data_string, salt="0123456789ABCDEF...uygt6987"):
     obj = hashlib.md5(salt.encode("utf-8"))
     obj.update(data_string.encode("utf-8"))
     return obj.hexdigest()
+
+
+#  非对称加密
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+
+class RSAEncrypt:
+    def __init__(self):
+        """
+        初始化 RSA 加密
+        """
+        rsa_dir = "static/rsa"
+        # 从 PEM 格式的 公钥 文件中读取数据
+        with open(f"{rsa_dir}/public.pem", "rb") as f:
+            self.pub_key = serialization.load_pem_public_key(f.read())
+
+        with open(f"{rsa_dir}/private.pem", "rb") as f:
+            self.priv_key = serialization.load_pem_private_key(f.read(), password=None)
+
+    def encrypt(self, data: str) -> Union[str, None]:
+        """对数据进行加密
+
+        Args:
+            data (str): 要加密的数据
+
+        Returns:
+            str: 加密后的数据
+        """
+        ciphertext = self.pub_key.encrypt( # type: ignore
+            data.encode(),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA1()),
+                algorithm=hashes.SHA1(),
+                label=None,
+            ),
+        )
+        if not ciphertext:
+            return None
+        return ciphertext.hex()
+
+    def decrypt(self, data: str) -> Union[str, None]:
+        """对数据进行解密
+
+        Args:
+            data (str): 要解密的数据
+
+        Returns:
+            Union[str, None]: 解密后的数据
+        """
+        data_bytes = bytes.fromhex(data)
+        plaintext = self.priv_key.decrypt( # type: ignore
+            data_bytes,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA1()),
+                algorithm=hashes.SHA1(),
+                label=None,
+            ),
+        )
+        return plaintext.decode()

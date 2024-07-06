@@ -6,9 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import SQLModel
 
-# region 初始化数据库
+# region 初始化数据库Activated
 from database import models as db_model
 from database import engine
+
 SQLModel.metadata.create_all(engine)
 # endregion
 

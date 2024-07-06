@@ -3,6 +3,8 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel, Relationship
 
+from utils import RSAEncrypt
+
 
 class Users(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, description="用户ID")
@@ -18,6 +20,7 @@ class Users(SQLModel, table=True):
 
     # region 菜谱相关
     recipes: list["Recipes"] = Relationship(back_populates="user")
+    recipe_groups: list["RecipeGroups"] = Relationship(back_populates="user")
     # 菜谱评论
     recipe_comments: list["RecipeComments"] = Relationship(back_populates="user")
     # # 菜谱被提及评论
@@ -77,6 +80,9 @@ class Tokens(SQLModel, table=True):
     user: Users = Relationship(back_populates="tokens")
 
 
+RECIPE_GROUP_STATUS = ["草稿", "发布", "删除"]
+
+
 class RecipeGroups(SQLModel, table=True):
     __tablename__ = "recipe_groups"  # type: ignore
 
@@ -87,11 +93,35 @@ class RecipeGroups(SQLModel, table=True):
     desc: Optional[str] = Field(default=None, description="菜谱分类描述")
     created: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated: datetime = Field(default_factory=datetime.now, description="更新时间")
+
     uid: int = Field(foreign_key="users.id", description="用户ID")  # 创建者ID.
+    user: Users = Relationship(back_populates="recipe_groups")  # 关联用户.
+
     status: int = Field(default=0, description="状态")  # 0:草稿, 1:发布, 2:删除.
     private: bool = Field(default=False, description="是否私有")  # 私有分类.
 
+    parent_id: Optional[int] = Field(
+        default=None, foreign_key="recipe_groups.id", description="父级分类ID"
+    )
+    parent: Optional["RecipeGroups"] = Relationship(
+        # back_populates="children"
+    )  # 关联父级分类.
+    children: list["RecipeGroups"] = Relationship(
+        sa_relationship_kwargs={"overlaps": "parent"}
+    )
+
     recipes: list["Recipes"] = Relationship(back_populates="group")  # 关联菜谱.
+
+    def to_resp(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "desc": self.desc,
+            "username": self.user.name,
+            "status": RECIPE_GROUP_STATUS[self.status],
+            "private": self.private,
+            "parent_id": self.parent_id,
+        }
 
 
 RECIPE_STATUS = ["草稿", "发布", "删除", "审核中", "审核不通过"]
@@ -107,20 +137,20 @@ class Recipes(SQLModel, table=True):
     status: int = Field(
         default=0, description="状态"
     )  # 0:草稿, 1:发布, 2:删除, 3:审核中, 4:审核不通过.
-    group_id: Optional[int] = Field(
+    gid: Optional[int] = Field(
         foreign_key="recipe_groups.id", description="菜谱分类ID"
     )  # 关联菜谱分类.
-    content: str = Field(description="菜谱内容")  # Markdown 格式.
     cover: Optional[str] = Field(default=None, description="封面图片")  # 图片URL.
-    materials: Optional[str] = Field(default=None, description="材料")  # JSON 格式.
     private: bool = Field(default=False, description="是否私有")
 
     user: Users = Relationship(back_populates="recipes")
     group: RecipeGroups = Relationship(back_populates="recipes")  # 关联菜谱分类.
-    setps: list["RecipeSteps"] = Relationship(back_populates="recipe")
+    steps: list["RecipeSteps"] = Relationship(back_populates="recipe")
     comments: list["RecipeComments"] = Relationship(
         back_populates="recipe"
     )  # 关联评论.
+
+    ingredients: list["RecipeIngredient"] = Relationship(back_populates="recipe")
 
     def to_resp(self):
         return {
@@ -132,8 +162,14 @@ class Recipes(SQLModel, table=True):
             "username": self.user.name,
             "status": RECIPE_STATUS[self.status],
             "group": self.group.name if self.group else None,
-            "cover": self.cover,
         }
+
+    def all_steps(self):
+        if not self.steps:
+            return []
+        steps = self.steps
+        steps.sort(key=lambda x: x.order)
+        return steps
 
 
 class RecipeIngredient(SQLModel, table=True):
@@ -141,10 +177,21 @@ class RecipeIngredient(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, description="ID")
     recipe_id: int = Field(foreign_key="recipes.id", description="菜谱ID")
     name: str = Field(description="材料名称")  # 材料名称.
-    # 数量
-    quantity: Optional[str] = Field(default=None, description="数量")  # 数量.
+    quantity: Optional[int] = Field(default=1, description="数量")  # 数量.
     unit: Optional[str] = Field(default=None, description="单位")  # 单位.
     desc: Optional[str] = Field(default=None, description="材料描述")
+    
+    recipe: Recipes = Relationship(back_populates="ingredients")
+
+    def to_resp(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "desc": self.desc,
+            "recipe_id": self.recipe_id,
+        }
 
 
 class RecipeSteps(SQLModel, table=True):  # 菜谱步骤.
@@ -158,7 +205,15 @@ class RecipeSteps(SQLModel, table=True):  # 菜谱步骤.
     order: int = Field(description="步骤顺序")
     img: Optional[str] = Field(default=None, description="步骤图片")
 
-    recipe: Recipes = Relationship(back_populates="setps")
+    recipe: Recipes = Relationship(back_populates="steps")
+
+    def to_resp(self):
+        return {
+            "id": self.id,
+            "desc": self.desc,
+            "order": self.order,
+            "img": RSAEncrypt().encrypt(self.img) if self.img else "",
+        }
 
 
 class RecipeComments(SQLModel, table=True):  # 菜谱评论.
@@ -186,6 +241,7 @@ class RecipeComments(SQLModel, table=True):  # 菜谱评论.
     reply_to_comment: Optional["RecipeComments"] = Relationship(
         # back_populates="replies"
     )
+
     # # 被回复的评论
     # replies: list["RecipeComments"] = Relationship(
     #     back_populates="reply_to_comment"
@@ -194,3 +250,13 @@ class RecipeComments(SQLModel, table=True):  # 菜谱评论.
     # reply_to_user: Optional[Users] = Relationship(
     #     back_populates="recipe_replied_comments"
     # )
+    def to_resp(self):
+        return {
+            "id": self.id,
+            "content": self.content,
+            "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),
+            "user": self.user.name,
+            "user_id": self.uid,
+            "private": self.private,
+        }

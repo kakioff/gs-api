@@ -8,7 +8,7 @@ from models import TokenData, CurrentUser
 from utils import encrypt_md5, resp_err, resp_succ
 from .models import ChangeInfo, CreateUser, LoginRequest
 from . import router
-from auth import create_access_token, get_password_hash, get_user
+from auth import create_access_token, get_user
 
 
 @router.post("/login")
