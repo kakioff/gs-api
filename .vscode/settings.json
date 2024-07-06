@@ -1,5 +1,13 @@
 {
+    "python.analysis.extraPaths": [
+        "./src"
+    ],
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.autoImportCompletions": true,
-    "python.analysis.extraPaths": ["./src"]
+    "python.testing.pytestArgs": [
+        "src",
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
