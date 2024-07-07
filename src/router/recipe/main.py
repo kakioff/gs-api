@@ -2,33 +2,20 @@ import datetime
 import hashlib
 import os
 from typing import Optional
-from fastapi import Depends, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, Query, Response, UploadFile
 from sqlalchemy import func
 from sqlmodel import Session, and_, or_, select
 
 from auth import get_user, get_user_optional
 from config import Settings, get_settings
 from database import get_db
-from database.models import RecipeGroups, RecipeIngredient, Recipes
+from database.models import RecipeGroups, RecipeIngredient, RecipeSteps, Recipes
+from database.utils import get_ingredient, get_recipe, get_step
 from models import CurrentUser
-from .models import CreateRecipe, CreateIngredient
+from .models import CreateRecipe, CreateIngredient, CreateStep
 from utils import resp_err, resp_succ
 from . import router
 from api import cos
-
-
-def get_recipe(
-    recipe_id: int, db: Session = Depends(get_db), usr: CurrentUser = Depends(get_user)
-):
-    recipe = db.exec(
-        select(Recipes).where(Recipes.id == recipe_id, Recipes.uid == usr.user.id)
-    ).one_or_none()
-    if not recipe:
-        raise HTTPException(
-            status_code=404,
-            detail="菜谱不存在或您没有权限访问",
-        )
-    return recipe
 
 
 @router.get("/list")
@@ -117,6 +104,7 @@ def get_recipe_detail(recipe: Recipes = Depends(get_recipe)):
     data = recipe.to_resp()
     data.update(
         {
+            "ingredients": [ingredient.to_resp() for ingredient in recipe.ingredients],
             "steps": [step.to_resp() for step in recipe.all_steps()],
             "comments": [comment.to_resp() for comment in recipe.comments],
         }
@@ -171,11 +159,26 @@ def get_recipe_cover(recipe: Recipes = Depends(get_recipe)):
     return Response(content=cover, media_type="image/png")
 
 
-@router.post("/ingredient")
-def update_recipe_ingredient(
+# region 原材料
+
+
+@router.get("/ingredients")
+def get_recipe_ingredient(
+    recipe: Recipes = Depends(get_recipe),
+    db: Session = Depends(get_db),
+    usr: CurrentUser = Depends(get_user),
+):
+    return resp_succ(
+        [ing.to_resp() for ing in recipe.ingredients], total=len(recipe.ingredients)
+    )
+
+
+@router.put("/ingredient")
+def create_recipe_ingredient(
     ingredient: CreateIngredient,
     recipe: Recipes = Depends(get_recipe),
     db: Session = Depends(get_db),
+    usr: CurrentUser = Depends(get_user),
 ):
     if not ingredient.name:
         return resp_err(code=400, detail="名称不能为空")
@@ -187,3 +190,119 @@ def update_recipe_ingredient(
     db.commit()
     db.refresh(new_ing)
     return resp_succ(new_ing.to_resp())
+
+
+@router.delete("/ingredient")
+def delete_recipe_ingredient(
+    ingredient: RecipeIngredient = Depends(get_ingredient),
+    usr: CurrentUser = Depends(get_user),
+    db: Session = Depends(get_db),
+):
+    db.delete(ingredient)
+    return resp_succ(detail="删除成功")
+
+
+@router.delete("/ingredients", description="批量删除")
+def delete_recipe_ingredients(
+    ing_ids: list[int] = Query(default=[], alias="ingredient_id"),
+    usr: CurrentUser = Depends(get_user),
+    db: Session = Depends(get_db),
+):
+    ings = []
+    for ing_id in ing_ids:
+        ing = get_ingredient(ing_id, db, usr=usr, exit_ok=True)
+        if ing:
+            ings.append(ing)
+    [db.delete(ing) for ing in ings]
+    return resp_succ(detail="删除成功", total=len(ings))
+
+
+@router.post("/ingredient")
+def update_recipe_ingredient(
+    ing: CreateIngredient,
+    ingredient: RecipeIngredient = Depends(get_ingredient),
+    usr: CurrentUser = Depends(get_user),
+    db: Session = Depends(get_db),
+):
+    if ing.name is not None:
+        ingredient.name = ing.name
+    if ing.quantity is not None:
+        ingredient.quantity = ing.quantity
+    if ing.unit is not None:
+        ingredient.unit = ing.unit
+    if ing.desc is not None:
+        ingredient.desc = ing.desc
+    db.add(ingredient)
+    db.commit()
+    db.refresh(ingredient)
+    return resp_succ(detail="修改成功", data=ingredient.to_resp())
+
+
+# endregion
+
+
+# region 步骤
+@router.get("/steps")
+def get_recipe_steps(
+    recipe: Recipes = Depends(get_recipe), usr: CurrentUser = Depends(get_user_optional)
+):
+    return resp_succ([step.to_resp() for step in recipe.steps], total=len(recipe.steps))
+
+
+@router.put("/step")
+def create_recipe_step(
+    step: CreateStep,
+    recipe: Recipes = Depends(get_recipe),
+    db: Session = Depends(get_db),
+):
+    new_step = RecipeSteps(recipe_id=recipe.id, **step.model_dump())
+    db.add(new_step)
+    db.commit()
+    db.refresh(new_step)
+    return resp_succ(new_step.to_resp())
+
+
+@router.delete("/step")
+def delete_recipe_step(
+    step: RecipeSteps = Depends(get_step),
+    db: Session = Depends(get_db),
+):
+    db.delete(step)
+    return resp_succ(detail="删除成功")
+
+
+@router.delete("/steps")
+def delete_recipe_steps(
+    step_ids: list[int] = Query(default=[], alias="step_id"),
+    usr: CurrentUser = Depends(get_user),
+    db: Session = Depends(get_db),
+):
+    steps = []
+    for step_id in step_ids:
+        step = get_step(step_id, db, usr=usr, exit_ok=True)
+        if step:
+            steps.append(step)
+
+    [db.delete(step) for step in steps]
+    return resp_succ(detail="删除成功", total=len(steps))
+
+
+@router.post("/step")
+def update_recipe_step(
+    new_step: CreateStep,
+    step: RecipeSteps = Depends(get_step),
+    db: Session = Depends(get_db),
+):
+    if new_step.title is not None:
+        step.title = new_step.title
+    if new_step.desc is not None:
+        step.desc = new_step.desc
+    if new_step.order is not None:
+        step.order = new_step.order
+    db.add(step)
+    db.commit()
+    db.refresh(step)
+    return resp_succ(detail="修改成功", data=step.to_resp())
+
+
+# endregion

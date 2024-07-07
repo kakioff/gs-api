@@ -20,6 +20,11 @@ class CreateRecipeGroup(BaseModel):
 
 class CreateIngredient(BaseModel):
     name: str | None = None
-    quantity: int | None = Field(1, ge=0)
-    unit: str | None = ""
+    quantity: int | None = None
+    unit: str | None = None
     desc: str | None = None
+
+class CreateStep(BaseModel):
+    title: str | None = None
+    desc: str | None = None
+    order: int | None = None

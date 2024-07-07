@@ -200,19 +200,19 @@ class RecipeSteps(SQLModel, table=True):  # 菜谱步骤.
     id: int = Field(
         default=None, primary_key=True, index=True, description="步骤ID"
     )  # 步骤ID.
+    title: str | None = Field(description="步骤标题", default=None)
     recipe_id: int = Field(foreign_key="recipes.id", description="菜谱ID")
-    desc: str = Field(description="步骤描述")
+    desc: str | None = Field(description="步骤描述", default=None)
     order: int = Field(description="步骤顺序")
-    img: Optional[str] = Field(default=None, description="步骤图片")
 
     recipe: Recipes = Relationship(back_populates="steps")
 
     def to_resp(self):
         return {
             "id": self.id,
+            "title": self.title,
             "desc": self.desc,
-            "order": self.order,
-            "img": RSAEncrypt().encrypt(self.img) if self.img else "",
+            "order": self.order
         }
 
 
