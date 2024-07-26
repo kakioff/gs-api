@@ -159,6 +159,7 @@ class Recipes(SQLModel, table=True):
             "desc": self.desc,
             "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),  # 格式化时间.
             "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),  # 格式化时间.
+            "uid": self.uid,
             "username": self.user.name,
             "status": RECIPE_STATUS[self.status],
             "group": self.group.name if self.group else None,
