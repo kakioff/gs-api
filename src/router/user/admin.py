@@ -16,7 +16,7 @@ from utils import encrypt_md5, resp_err, resp_succ
 from . import router as f_router
 
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/admin", tags=["Admin", "User"])
 
 
 @router.get("/all-users")

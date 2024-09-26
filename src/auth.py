@@ -77,13 +77,13 @@ async def get_user_optional(
     if token is None:
         return None
     try:
-        return await get_user(db, token)
+        usr = await get_user(db, token)
+        return usr
     except:
         return None
 
-async def get_user_admin(
-    db: Session = Depends(get_db), token=Depends(oauth2_scheme)
-):
+
+async def get_user_admin(db: Session = Depends(get_db), token=Depends(oauth2_scheme)):
     usr = await get_user(db, token)
     if usr.user.role_id < 3:
         # 3: 普通用户，数字越大权限越大

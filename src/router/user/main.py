@@ -8,7 +8,7 @@ from models import TokenData, CurrentUser
 from utils import encrypt_md5, resp_err, resp_succ
 from .models import ChangeInfo, CreateUser, LoginRequest
 from . import router
-from auth import create_access_token, get_password_hash, get_user
+from auth import create_access_token, get_user
 
 
 @router.post("/login")
@@ -88,6 +88,22 @@ async def get_user_info(usr: CurrentUser = Depends(get_user)):
     获取用户信息接口，需要登录才能访问
     """
     return resp_succ(data=usr.user.to_resp(), detail="获取信息成功")
+
+
+@router.post("/check-password")
+async def check_password(
+    info: LoginRequest,
+    usr: CurrentUser = Depends(get_user),
+):
+    """
+    验证密码接口，需要登录才能访问
+    """
+    print(info.passwd)
+    new_passwd = encrypt_md5(info.passwd)
+    print(new_passwd)
+    if new_passwd == usr.user.hashed_password:
+        return resp_succ(detail="密码正确")
+    return resp_err(detail="密码错误", code=401)
 
 
 @router.get("/logout")

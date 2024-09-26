@@ -3,6 +3,8 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel, Relationship
 
+from utils import RSAEncrypt
+
 
 class Users(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, description="用户ID")
@@ -51,6 +53,13 @@ class Roles(SQLModel, table=True):
     | 3|user|普通用户|
     | 4|admin|管理员|
     | 5|super|超管|
+
+    ---
+
+    ```sql
+    # 生成数据
+    insert into roles (id,name,label) values (0,'guest','游客'),(1,'disable','禁用'),(2,'subscribe','订阅者'),(3,'user','普通用户'),(4,'admin','管理员'),(5,'super','超管');
+    ```
     """
 
     id: int = Field(primary_key=True, index=True, description="角色ID")
@@ -70,6 +79,9 @@ class Tokens(SQLModel, table=True):
     desc: Optional[str] = Field(default=None, description="描述")
 
     user: Users = Relationship(back_populates="tokens")
+
+
+RECIPE_GROUP_STATUS = ["草稿", "发布", "删除"]
 
 
 # class RecipeGroups(SQLModel, table=True):

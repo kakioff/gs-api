@@ -12,6 +12,8 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "sqlmodel>=0.0.19",
     "pymysql>=1.1.1",
+    "cos-python-sdk-v5>=1.9.30",
+    "pytest>=8.2.2",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
@@ -24,3 +26,4 @@ distribution = false
 [tool.pdm.scripts]
 # dev = "uvicorn main:app --reload --port 8080 --app-dir src"
 dev = "fastapi dev ./src/main.py"
+test = "pytest"
