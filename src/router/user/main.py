@@ -24,7 +24,7 @@ async def login(
     new_passwd = encrypt_md5(usr.passwd)
     user = db.exec(
         select(Users).where(Users.name == usr.name, Users.hashed_password == new_passwd)
-    ).one_or_none()
+    ).first()
     if user is None:
         return resp_err(detail="用户名或密码错误", code=401)
     token_data = TokenData(
@@ -67,7 +67,7 @@ async def token(
     return {"access_token": token, "token_type": "bearer"}
 
 
-@router.put("/create")
+@router.post("/create")
 async def create_user(usr: CreateUser, db: Session = Depends(get_db)):
     """
     创建用户接口

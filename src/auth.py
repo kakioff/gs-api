@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import logging
+from typing import Optional
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
@@ -70,8 +71,11 @@ async def get_user(db: Session = Depends(get_db), token: str = Depends(oauth2_sc
 
 
 async def get_user_optional(
-    db: Session = Depends(get_db), token=Depends(oauth2_scheme)
+    db: Session = Depends(get_db), token:Optional[str]=Depends(oauth2_scheme)
 ):
+    print("get_user_optional", token)
+    if token is None:
+        return None
     try:
         return await get_user(db, token)
     except:
@@ -81,7 +85,7 @@ async def get_user_admin(
     db: Session = Depends(get_db), token=Depends(oauth2_scheme)
 ):
     usr = await get_user(db, token)
-    if usr.user.role_id <= 3:
+    if usr.user.role_id < 3:
         # 3: 普通用户，数字越大权限越大
         raise HTTPException(status_code=403, detail="Permission denied")
     return usr
